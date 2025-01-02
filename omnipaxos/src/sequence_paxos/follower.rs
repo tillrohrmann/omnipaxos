@@ -190,7 +190,6 @@ where
                 let not_acc = NotAccepted { n: my_promise };
                 #[cfg(feature = "logging")]
                 trace!(
-                    self.logger,
                     "NotAccepted. My promise: {:?}, theirs: {:?}",
                     my_promise,
                     message_ballot
@@ -206,7 +205,6 @@ where
                 // Should never happen, but to be safe send PrepareReq
                 #[cfg(feature = "logging")]
                 warn!(
-                    self.logger,
                     "Received non-prepare message from a leader I've never promised. My: {:?}, theirs: {:?}", my_promise, message_ballot
                 );
                 self.reconnected(message_ballot.pid);
@@ -242,7 +240,7 @@ where
                         // Shouldn't be possible to be in prepare phase without having
                         // cached the promise sent as a response to the prepare
                         #[cfg(feature = "logging")]
-                        warn!(self.logger, "In Prepare phase without a cached promise!");
+                        warn!("In Prepare phase without a cached promise!");
                         self.state = (Role::Follower, Phase::Recover);
                         self.send_preparereq_to_all_peers();
                     }

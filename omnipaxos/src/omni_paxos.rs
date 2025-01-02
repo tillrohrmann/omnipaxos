@@ -169,10 +169,6 @@ pub struct ServerConfig {
     /// The path where the default logger logs events.
     #[cfg(feature = "logging")]
     pub logger_file_path: Option<String>,
-    /// Custom logger, if provided, will be used instead of the default logger.
-    #[cfg(feature = "logging")]
-    #[cfg_attr(feature = "toml_config", serde(skip_deserializing))]
-    pub custom_logger: Option<slog::Logger>,
 }
 
 impl ServerConfig {
@@ -205,8 +201,6 @@ impl Default for ServerConfig {
             leader_priority: 0,
             #[cfg(feature = "logging")]
             logger_file_path: None,
-            #[cfg(feature = "logging")]
-            custom_logger: None,
         }
     }
 }

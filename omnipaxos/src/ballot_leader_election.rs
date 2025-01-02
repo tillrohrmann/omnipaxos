@@ -6,8 +6,6 @@ use crate::{
     util::{defaults::*, ConfigurationId, FlexibleQuorum, Quorum},
 };
 
-#[cfg(feature = "logging")]
-use crate::utils::logger::create_logger;
 use crate::{
     messages::ballot_leader_election::{
         BLEMessage, HeartbeatMsg, HeartbeatReply, HeartbeatRequest,
@@ -18,7 +16,7 @@ use crate::{
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "logging")]
-use slog::{info, trace, Logger};
+use tracing::{info, trace};
 
 /// Used to define a Sequence Paxos epoch
 #[derive(Clone, Copy, Eq, Debug, Default, PartialEq)]
@@ -93,9 +91,6 @@ pub(crate) struct BallotLeaderElection {
     quorum: Quorum,
     /// Vector which holds all the outgoing messages of the BLE instance.
     outgoing: Vec<BLEMessage>,
-    /// Logger used to output the status of the component.
-    #[cfg(feature = "logging")]
-    logger: Logger,
 }
 
 impl BallotLeaderElection {
@@ -127,24 +122,10 @@ impl BallotLeaderElection {
             happy: true,
             quorum,
             outgoing: Vec::with_capacity(config.buffer_size),
-            #[cfg(feature = "logging")]
-            logger: {
-                if let Some(logger) = config.custom_logger {
-                    logger
-                } else {
-                    let s = config
-                        .logger_file_path
-                        .unwrap_or_else(|| format!("logs/paxos_{}.log", pid));
-                    create_logger(s.as_str())
-                }
-            },
         };
         #[cfg(feature = "logging")]
         {
-            info!(
-                ble.logger,
-                "Ballot Leader Election component pid: {} created!", pid
-            );
+            info!("Ballot Leader Election component pid: {} created!", pid);
         }
         ble.new_hb_round();
         ble
@@ -176,11 +157,7 @@ impl BallotLeaderElection {
         self.prev_replies = std::mem::take(&mut self.heartbeat_replies);
         self.hb_round += 1;
         #[cfg(feature = "logging")]
-        trace!(
-            self.logger,
-            "Initiate new heartbeat round: {}",
-            self.hb_round
-        );
+        trace!("Initiate new heartbeat round: {}", self.hb_round);
         for peer in &self.peers {
             let hb_request = HeartbeatRequest {
                 round: self.hb_round,
@@ -315,10 +292,6 @@ pub(crate) struct BLEConfig {
     priority: u32,
     flexible_quorum: Option<FlexibleQuorum>,
     buffer_size: usize,
-    #[cfg(feature = "logging")]
-    logger_file_path: Option<String>,
-    #[cfg(feature = "logging")]
-    custom_logger: Option<Logger>,
 }
 
 impl From<OmniPaxosConfig> for BLEConfig {
@@ -338,10 +311,6 @@ impl From<OmniPaxosConfig> for BLEConfig {
             priority: config.server_config.leader_priority,
             flexible_quorum: config.cluster_config.flexible_quorum,
             buffer_size: BLE_BUFFER_SIZE,
-            #[cfg(feature = "logging")]
-            logger_file_path: config.server_config.logger_file_path,
-            #[cfg(feature = "logging")]
-            custom_logger: config.server_config.custom_logger,
         }
     }
 }

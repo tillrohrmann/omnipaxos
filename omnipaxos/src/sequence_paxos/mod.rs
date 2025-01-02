@@ -1,6 +1,4 @@
 use super::{ballot_leader_election::Ballot, messages::sequence_paxos::*, util::LeaderState};
-#[cfg(feature = "logging")]
-use crate::utils::logger::create_logger;
 use crate::{
     storage::{
         internal_storage::{InternalStorage, InternalStorageConfig},
@@ -11,9 +9,9 @@ use crate::{
     },
     ClusterConfig, CompactionErr, OmniPaxosConfig, ProposeErr,
 };
-#[cfg(feature = "logging")]
-use slog::{debug, info, trace, warn, Logger};
 use std::{fmt::Debug, vec};
+#[cfg(feature = "logging")]
+use tracing::{debug, info, trace, warn};
 
 pub mod follower;
 pub mod leader;
@@ -39,8 +37,6 @@ where
     current_seq_num: SequenceNumber,
     cached_promise_message: Option<Promise<T>>,
     buffer_size: usize,
-    #[cfg(feature = "logging")]
-    logger: Logger,
 }
 
 impl<T, B> SequencePaxos<T, B>
@@ -98,17 +94,6 @@ where
             current_seq_num: SequenceNumber::default(),
             cached_promise_message: None,
             buffer_size: config.buffer_size,
-            #[cfg(feature = "logging")]
-            logger: {
-                if let Some(logger) = config.custom_logger {
-                    logger
-                } else {
-                    let s = config
-                        .logger_file_path
-                        .unwrap_or_else(|| format!("logs/paxos_{}.log", pid));
-                    create_logger(s.as_str())
-                }
-            },
         };
         paxos
             .internal_storage
@@ -116,11 +101,10 @@ where
             .expect(WRITE_ERROR_MSG);
         #[cfg(feature = "logging")]
         {
-            info!(paxos.logger, "Paxos component pid: {} created!", pid);
+            info!("Paxos component pid: {} created!", pid);
             if let Quorum::Flexible(flex_quorum) = quorum {
                 if flex_quorum.read_quorum_size > num_nodes - flex_quorum.write_quorum_size + 1 {
                     warn!(
-                        paxos.logger,
                         "Unnecessary overlaps in read and write quorums. Read and Write quorums only need to be overlapping by one node i.e., read_quorum_size + write_quorum_size = num_nodes + 1");
                 }
             }
@@ -148,7 +132,6 @@ where
                     None => {
                         #[cfg(feature = "logging")]
                         trace!(
-                            self.logger,
                             "No trim index provided, using min_las_idx: {:?}",
                             min_all_accepted_idx
                         );
@@ -312,10 +295,7 @@ where
             return Err(ProposeErr::PendingReconfigConfig(new_config, metadata));
         }
         #[cfg(feature = "logging")]
-        info!(
-            self.logger,
-            "Accepting reconfiguration {:?}", new_config.nodes
-        );
+        info!("Accepting reconfiguration {:?}", new_config.nodes);
         let ss = StopSign::with(new_config, metadata);
         match self.state {
             (Role::Leader, Phase::Prepare) => self.buffered_stopsign = Some(ss),
@@ -378,7 +358,7 @@ where
         let leader = self.get_current_leader();
         if leader > 0 && self.pid != leader {
             #[cfg(feature = "logging")]
-            trace!(self.logger, "Forwarding StopSign to Leader {:?}", leader);
+            trace!("Forwarding StopSign to Leader {:?}", leader);
             let fs = PaxosMsg::ForwardStopSign(ss);
             let msg = PaxosMessage {
                 from: self.pid,
@@ -457,10 +437,6 @@ pub(crate) struct SequencePaxosConfig {
     buffer_size: usize,
     pub(crate) batch_size: usize,
     flexible_quorum: Option<FlexibleQuorum>,
-    #[cfg(feature = "logging")]
-    logger_file_path: Option<String>,
-    #[cfg(feature = "logging")]
-    custom_logger: Option<Logger>,
 }
 
 impl From<OmniPaxosConfig> for SequencePaxosConfig {
@@ -478,10 +454,6 @@ impl From<OmniPaxosConfig> for SequencePaxosConfig {
             flexible_quorum: config.cluster_config.flexible_quorum,
             buffer_size: config.server_config.buffer_size,
             batch_size: config.server_config.batch_size,
-            #[cfg(feature = "logging")]
-            logger_file_path: config.server_config.logger_file_path,
-            #[cfg(feature = "logging")]
-            custom_logger: config.server_config.custom_logger,
         }
     }
 }

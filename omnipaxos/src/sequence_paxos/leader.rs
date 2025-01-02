@@ -18,7 +18,7 @@ where
             return;
         }
         #[cfg(feature = "logging")]
-        debug!(self.logger, "Newly elected leader: {:?}", n);
+        debug!("Newly elected leader: {:?}", n);
         if self.pid == n.pid {
             self.leader_state =
                 LeaderState::with(n, self.leader_state.max_pid, self.leader_state.quorum);
@@ -65,7 +65,7 @@ where
 
     pub(crate) fn handle_preparereq(&mut self, prepreq: PrepareReq, from: NodeId) {
         #[cfg(feature = "logging")]
-        debug!(self.logger, "Incoming message PrepareReq from {}", from);
+        debug!("Incoming message PrepareReq from {}", from);
         if self.state.0 == Role::Leader && prepreq.n <= self.leader_state.n_leader {
             self.leader_state.reset_promise(from);
             self.leader_state.set_batch_accept_meta(from, None);
@@ -121,7 +121,7 @@ where
     fn handle_accepted_entries(&mut self, metadata: AcceptedMetaData<T>) {
         let self_accepted = Accepted {
             n: self.leader_state.n_leader,
-            accepted_idx: metadata.accepted_idx
+            accepted_idx: metadata.accepted_idx,
         };
         self.send_acceptdecide(metadata);
         self.handle_accepted(self_accepted, self.pid);
@@ -148,7 +148,7 @@ where
         let accepted_idx = self.internal_storage.get_accepted_idx();
         let self_accepted = Accepted {
             n: self.leader_state.n_leader,
-            accepted_idx
+            accepted_idx,
         };
         for pid in self.leader_state.get_promised_followers() {
             self.send_accept_stopsign(pid, ss.clone(), false);
@@ -307,10 +307,7 @@ where
 
     pub(crate) fn handle_promise_prepare(&mut self, prom: Promise<T>, from: NodeId) {
         #[cfg(feature = "logging")]
-        debug!(
-            self.logger,
-            "Handling promise from {} in Prepare phase", from
-        );
+        debug!("Handling promise from {} in Prepare phase", from);
         if prom.n == self.leader_state.n_leader {
             let received_majority = self.leader_state.set_promise(prom, from, true);
             if received_majority {
@@ -324,8 +321,8 @@ where
         {
             let (r, p) = &self.state;
             debug!(
-                self.logger,
-                "Self role {:?}, phase {:?}. Incoming message Promise Accept from {}", r, p, from
+                "Self role {:?}, phase {:?}. Incoming message Promise Accept from {}",
+                r, p, from
             );
         }
         if prom.n == self.leader_state.n_leader {
@@ -337,7 +334,6 @@ where
     pub(crate) fn handle_accepted(&mut self, accepted: Accepted, from: NodeId) {
         #[cfg(feature = "logging")]
         trace!(
-            self.logger,
             "Got Accepted from {}, idx: {}, chosen_idx: {}, accepted: {:?}",
             from,
             accepted.accepted_idx,
