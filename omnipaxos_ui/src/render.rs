@@ -278,7 +278,10 @@ where
         app.current_role,
         app.current_node.ballot_number,
         app.decided_idx,
-        app.followers_accepted_idx[app.current_node.pid as usize],
+        app.followers_accepted_idx
+            .get(&app.current_node.pid)
+            .copied()
+            .unwrap_or_default(),
     );
     let node_info_text = Paragraph::new(node_info)
         .style(Style::default().fg(Color::LightCyan))
@@ -410,7 +413,11 @@ fn draw_leader_table<'a>(app: &App, borders: Borders) -> Table<'a> {
         cells.push(Cell::from(ballot));
         cells.push(Cell::from(leader));
         cells.push(Cell::from(
-            app.followers_accepted_idx[peer.pid as usize].to_string(),
+            app.followers_accepted_idx
+                .get(&peer.pid)
+                .copied()
+                .unwrap_or_default()
+                .to_string(),
         ));
         Row::new(cells)
             .height(UI_TABLE_CONTENT_HEIGHT)
@@ -463,7 +470,10 @@ where
             draw_progress_bar(
                 f,
                 chunks[idx + 1],
-                app.followers_progress[node_id.pid as usize],
+                app.followers_progress
+                    .get(&node_id.pid)
+                    .copied()
+                    .unwrap_or_default(),
             )
         });
 }

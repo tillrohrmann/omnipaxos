@@ -46,3 +46,5 @@ pub mod macros {
     #[doc(hidden)]
     pub use omnipaxos_macros::*;
 }
+
+type HashMap<K, V> = std::collections::HashMap<K, V, xxhash_rust::xxh3::Xxh3Builder>;

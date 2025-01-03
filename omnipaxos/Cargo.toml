@@ -21,6 +21,7 @@ lru = { version = "0.11.0", optional = true }
 num-traits = { version = "0.2.16", optional = true }
 linked_hash_set = { version = "0.1.4", optional = true }
 tracing = { version = "0.1", optional = true }
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
 [dev-dependencies]
 kompact = { git = "https://github.com/kompics/kompact", rev = "94956af", features = ["silent_logging"] }

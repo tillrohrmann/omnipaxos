@@ -1,6 +1,7 @@
 use crate::{util::defaults::*, UIAppConfig};
 use omnipaxos::util::NodeId;
 use ratatui::style::Color;
+use std::collections::HashMap;
 use std::time::Instant;
 
 /// Basic information of a node.
@@ -49,15 +50,13 @@ pub(crate) struct App {
     pub(crate) dps: f64,
     /// The progress of all the followers, calculated by accepted_idx / leader’s accepted index.
     /// Calculated only when the current node is the leader. Idx is the pid of the node.
-    pub(crate) followers_progress: Vec<f64>,
+    pub(crate) followers_progress: HashMap<NodeId, f64>,
     /// The accepted_idx of all the followers. Idx is the pid of the node.
-    pub(crate) followers_accepted_idx: Vec<usize>,
+    pub(crate) followers_accepted_idx: HashMap<NodeId, usize>,
 }
 
 impl App {
     pub(crate) fn with(config: UIAppConfig) -> Self {
-        let max_peer_pid = config.peers.iter().max().unwrap();
-        let max_pid = *std::cmp::max(max_peer_pid, &config.pid) as usize;
         let mut current_node = Node {
             pid: config.pid,
             ballot_number: 0,
@@ -98,8 +97,8 @@ impl App {
             last_update_time: Instant::now(),
             throughput_data: Vec::with_capacity(THROUGHPUT_DATA_SIZE),
             dps: 0.0,
-            followers_progress: vec![0.0; max_pid + 1],
-            followers_accepted_idx: vec![0; max_pid + 1],
+            followers_progress: HashMap::default(),
+            followers_accepted_idx: HashMap::default(),
         }
     }
 
