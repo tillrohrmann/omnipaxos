@@ -411,6 +411,11 @@ where
             cluster_state,
         }
     }
+
+    /// Consumes self and returns the underlying storage.
+    pub fn into_inner(self) -> B {
+        self.seq_paxos.internal_storage.into_inner()
+    }
 }
 
 /// An error indicating a failed proposal due to the current cluster configuration being already stopped

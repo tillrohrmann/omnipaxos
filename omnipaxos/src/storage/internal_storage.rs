@@ -531,4 +531,8 @@ where
     pub(crate) fn set_unicache(&mut self, unicache: T::UniCache) {
         self.state_cache.unicache = unicache;
     }
+
+    pub(crate) fn into_inner(self) -> I {
+        self.storage
+    }
 }
