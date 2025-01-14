@@ -149,6 +149,7 @@ mod serialization {
         de::{SeqAccess, Visitor},
         ser::SerializeSeq,
     };
+    use std::marker::PhantomData;
 
     impl<Encodable: DefaultEncodable, Encoded: DefaultEncodable> Serialize
         for LruWrapper<Encodable, Encoded>

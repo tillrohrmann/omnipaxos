@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Formatter},
     hash::Hash,
-    marker::PhantomData,
     num::NonZeroUsize,
     ops::Add,
 };
