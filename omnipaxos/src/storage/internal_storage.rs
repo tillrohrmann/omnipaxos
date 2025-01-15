@@ -71,6 +71,13 @@ where
         if self.state_cache.stopsign.is_some() {
             self.state_cache.accepted_idx += 1;
         }
+
+        // safety checks
+        assert!(self.get_decided_idx() <= self.get_accepted_idx(), "decided_idx must be less than or equal to accepted_idx. Otherwise, this indicates a loss of decided entries.");
+        assert!(
+            self.get_compacted_idx() <= self.get_decided_idx(),
+            "only support compaction of decided entries. This indicates a serious bug!"
+        );
     }
 
     /// Read all decided entries from `from_idx` in the log.
