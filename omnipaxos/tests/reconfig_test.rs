@@ -49,10 +49,8 @@ fn reconfig_test() {
         .expect("Failed to collect reconfiguration future");
 
     first_node.on_definition(|x| {
-        let decided = x
-            .paxos
-            .read_decided_suffix(0)
-            .expect("Failed to read decided suffix");
+        let decided = x.paxos.read_decided_suffix(0);
+
         match decided.last().expect("Failed to read last decided entry") {
             LogEntry::StopSign(ss, decided) => {
                 assert_eq!(ss.next_config, new_config);

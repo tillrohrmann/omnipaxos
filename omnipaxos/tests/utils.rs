@@ -820,7 +820,7 @@ pub mod omnireplica {
         }
 
         pub fn read_decided_log(&self) -> Vec<LogEntry<Value>> {
-            self.paxos.read_decided_suffix(0).unwrap()
+            self.paxos.read_decided_suffix(0)
         }
 
         fn send_outgoing_msgs(&mut self) {
@@ -875,26 +875,24 @@ pub mod omnireplica {
         }
 
         fn answer_decided_future(&mut self) {
-            if let Some(entries) = self.paxos.read_decided_suffix(self.decided_idx) {
-                for e in entries {
-                    match e {
-                        LogEntry::Decided(i) => {
-                            self.try_answer_decided_future(i.id);
-                        }
-                        LogEntry::Snapshotted(s) => {
-                            // Reply futures that were trimmed away
-                            for id in s.snapshot.snapshotted.iter().map(|x| x.id) {
-                                self.try_answer_decided_future(id)
-                            }
-                        }
-                        LogEntry::StopSign(_ss, _is_decided) => {
-                            self.try_answer_decided_future(STOPSIGN_ID);
-                        }
-                        err => panic!("{}", format!("Got unexpected entry: {:?}", err)),
+            for e in self.paxos.read_decided_suffix(self.decided_idx) {
+                match e {
+                    LogEntry::Decided(i) => {
+                        self.try_answer_decided_future(i.id);
                     }
+                    LogEntry::Snapshotted(s) => {
+                        // Reply futures that were trimmed away
+                        for id in s.snapshot.snapshotted.iter().map(|x| x.id) {
+                            self.try_answer_decided_future(id)
+                        }
+                    }
+                    LogEntry::StopSign(_ss, _is_decided) => {
+                        self.try_answer_decided_future(STOPSIGN_ID);
+                    }
+                    err => panic!("{}", format!("Got unexpected entry: {:?}", err)),
                 }
-                self.decided_idx = self.paxos.get_decided_idx();
             }
+            self.decided_idx = self.paxos.get_decided_idx();
         }
     }
 

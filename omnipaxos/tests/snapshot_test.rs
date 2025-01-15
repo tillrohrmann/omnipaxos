@@ -135,7 +135,7 @@ fn check_snapshot(
     node.on_definition(|x| {
         let op = &x.paxos;
         for snapshotted_idx in 0..snapshot_idx {
-            match op.read(snapshotted_idx).unwrap() {
+            match op.read_entries(snapshotted_idx..=snapshotted_idx).first().unwrap() {
                 LogEntry::Snapshotted(s)
                     if s.snapshot == exp_snapshot && s.trimmed_idx == snapshot_idx => {}
                 e => panic!(
@@ -144,17 +144,11 @@ fn check_snapshot(
                 ),
             }
         }
-        for idx in snapshot_idx..num_proposals {
-            let expected_value = vec_proposals.get(idx).unwrap();
-            match op.read(idx).unwrap() {
-                LogEntry::Decided(v) if &v == expected_value => {}
-                e => panic!(
-                    "Entry {} must be decided with {:?}, but was {:?}",
-                    idx, expected_value, e
-                ),
-            }
+        let entries = op.read_entries(snapshot_idx..num_proposals);
+        for (offset, (actual_entry, expected_value)) in entries.iter().zip(vec_proposals[snapshot_idx..num_proposals].iter()).enumerate() {
+            assert!(matches!(actual_entry, LogEntry::Decided(v) if v == expected_value), "Entry {} must be decided with {:?}, but was {:?}", snapshot_idx + offset, expected_value, actual_entry);
         }
-        let decided_sfx = op.read_decided_suffix(0).unwrap();
+        let decided_sfx = op.read_decided_suffix(0);
         assert_eq!(decided_sfx.len(), num_proposals - snapshot_idx + 1); // +1 as all snapshotted entries are represented by LogEntry::Snapshotted
     });
 }

@@ -480,7 +480,7 @@ fn reconnect_after_dropped_acceptstopsign_test() {
     // Verify log
     let follower = sys.nodes.get(&follower_id).unwrap();
     let followers_log: Vec<LogEntry<Value>> =
-        follower.on_definition(|x| x.paxos.read_entries(0..1).expect("Cannot read log entry"));
+        follower.on_definition(|x| x.paxos.read_entries(0..1));
     verify_stopsign(
         &followers_log,
         &StopSign::with(next_config, Some(vec![1, 2, 3])),

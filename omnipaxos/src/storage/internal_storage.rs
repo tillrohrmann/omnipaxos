@@ -73,82 +73,92 @@ where
         }
     }
 
-    /// Read all decided entries from `from_idx` in the log. Returns `None` if `from_idx` is out of bounds.
-    pub(crate) fn read_decided_suffix(
-        &self,
-        from_idx: usize,
-    ) -> StorageResult<Option<Vec<LogEntry<T>>>> {
+    /// Read all decided entries from `from_idx` in the log.
+    ///
+    /// # Panics
+    /// If the `from_idx` is greater than the decided index.
+    pub(crate) fn read_decided_suffix(&self, from_idx: usize) -> StorageResult<Vec<LogEntry<T>>> {
         let decided_idx = self.get_decided_idx();
-        if from_idx < decided_idx {
-            self.read(from_idx..decided_idx)
-        } else {
-            Ok(None)
-        }
+
+        assert!(
+            from_idx <= decided_idx,
+            "from_idx is greater than decided_idx"
+        );
+
+        self.read(from_idx..decided_idx)
     }
 
-    /// Read entries in the range `r` in the log. Returns `None` if `r` is out of bounds.
-    pub(crate) fn read<R>(&self, r: R) -> StorageResult<Option<Vec<LogEntry<T>>>>
+    /// Read entries in the range `r` in the log.
+    ///
+    /// # Panics
+    /// If the range is invalid (lower index is greater than upper index). If the lower index is
+    /// greater than the last log entry.
+    pub(crate) fn read<R>(&self, r: R) -> StorageResult<Vec<LogEntry<T>>>
     where
         R: RangeBounds<usize>,
     {
-        let from_idx = match r.start_bound() {
+        let from_idx_inclusive = match r.start_bound() {
             Bound::Included(i) => *i,
             Bound::Excluded(e) => *e + 1,
             Bound::Unbounded => 0,
         };
-        let to_idx = match r.end_bound() {
+        let to_idx_exclusive = match r.end_bound() {
             Bound::Included(i) => *i + 1,
             Bound::Excluded(e) => *e,
             Bound::Unbounded => self.get_accepted_idx(),
         };
-        if to_idx == 0 {
-            return Ok(None);
+
+        assert!(from_idx_inclusive <= to_idx_exclusive, "invalid range");
+        assert!(
+            from_idx_inclusive <= self.get_accepted_idx(),
+            "from_idx '{}' out of bounds",
+            from_idx_inclusive
+        );
+
+        if to_idx_exclusive == from_idx_inclusive {
+            return Ok(Vec::new());
         }
+
         let compacted_idx = self.get_compacted_idx();
         let accepted_idx = self.get_accepted_idx();
-        // use to_idx-1 when getting the entry type as to_idx is exclusive
-        let to_type = match self.get_entry_type(to_idx - 1, compacted_idx, accepted_idx)? {
-            Some(IndexEntry::Compacted) => {
-                return Ok(Some(vec![self.create_compacted_entry(compacted_idx)?]))
-            }
-            Some(from_type) => from_type,
-            _ => return Ok(None),
-        };
-        let from_type = match self.get_entry_type(from_idx, compacted_idx, accepted_idx)? {
-            Some(from_type) => from_type,
-            _ => return Ok(None),
-        };
+        // use to_idx_exclusive - 1 when getting the entry type as to_idx is exclusive
+        let to_type =
+            match self.get_entry_type(to_idx_exclusive - 1, compacted_idx, accepted_idx)? {
+                IndexEntry::Compacted => {
+                    return Ok(vec![self.create_compacted_entry(compacted_idx)?])
+                }
+                from_type => from_type,
+            };
+        let from_type = self.get_entry_type(from_idx_inclusive, compacted_idx, accepted_idx)?;
         match (from_type, to_type) {
             (IndexEntry::Entry, IndexEntry::Entry) => {
-                Ok(Some(self.create_read_log_entries(from_idx, to_idx)?))
+                Ok(self.create_read_log_entries(from_idx_inclusive, to_idx_exclusive)?)
             }
             (IndexEntry::Entry, IndexEntry::StopSign(ss)) => {
-                let mut entries = self.create_read_log_entries(from_idx, to_idx - 1)?;
+                let mut entries =
+                    self.create_read_log_entries(from_idx_inclusive, to_idx_exclusive - 1)?;
                 entries.push(LogEntry::StopSign(ss, self.stopsign_is_decided()));
-                Ok(Some(entries))
+                Ok(entries)
             }
             (IndexEntry::Compacted, IndexEntry::Entry) => {
-                let mut entries = Vec::with_capacity(to_idx - compacted_idx + 1);
+                let mut entries = Vec::with_capacity(to_idx_exclusive - compacted_idx + 1);
                 let compacted = self.create_compacted_entry(compacted_idx)?;
                 entries.push(compacted);
-                let mut e = self.create_read_log_entries(compacted_idx, to_idx)?;
+                let mut e = self.create_read_log_entries(compacted_idx, to_idx_exclusive)?;
                 entries.append(&mut e);
-                Ok(Some(entries))
+                Ok(entries)
             }
             (IndexEntry::Compacted, IndexEntry::StopSign(ss)) => {
-                let mut entries = Vec::with_capacity(to_idx - compacted_idx + 1);
+                let mut entries = Vec::with_capacity(to_idx_exclusive - compacted_idx + 1);
                 let compacted = self.create_compacted_entry(compacted_idx)?;
                 entries.push(compacted);
-                let mut e = self.create_read_log_entries(compacted_idx, to_idx - 1)?;
+                let mut e = self.create_read_log_entries(compacted_idx, to_idx_exclusive - 1)?;
                 entries.append(&mut e);
                 entries.push(LogEntry::StopSign(ss, self.stopsign_is_decided()));
-                Ok(Some(entries))
+                Ok(entries)
             }
             (IndexEntry::StopSign(ss), IndexEntry::StopSign(_)) => {
-                Ok(Some(vec![LogEntry::StopSign(
-                    ss,
-                    self.stopsign_is_decided(),
-                )]))
+                Ok(vec![LogEntry::StopSign(ss, self.stopsign_is_decided())])
             }
             e => {
                 unimplemented!("{}", format!("Unexpected read combination: {:?}", e))
@@ -159,20 +169,22 @@ where
     fn get_entry_type(
         &self,
         idx: usize,
+        // first index with an entry after a compaction
         compacted_idx: usize,
+        // next index after the last accepted index
         accepted_idx: usize,
-    ) -> StorageResult<Option<IndexEntry>> {
+    ) -> StorageResult<IndexEntry> {
         if idx < compacted_idx {
-            Ok(Some(IndexEntry::Compacted))
-        } else if idx + 1 < accepted_idx {
-            Ok(Some(IndexEntry::Entry))
-        } else if idx + 1 == accepted_idx {
+            Ok(IndexEntry::Compacted)
+        } else if idx < accepted_idx - 1 {
+            Ok(IndexEntry::Entry)
+        } else if idx == accepted_idx - 1 {
             match self.get_stopsign() {
-                Some(ss) => Ok(Some(IndexEntry::StopSign(ss))),
-                _ => Ok(Some(IndexEntry::Entry)),
+                Some(ss) => Ok(IndexEntry::StopSign(ss)),
+                _ => Ok(IndexEntry::Entry),
             }
         } else {
-            Ok(None)
+            Err(format!("Index {} out of bounds", idx).into())
         }
     }
 

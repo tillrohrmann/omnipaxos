@@ -90,9 +90,8 @@ fn read_test() {
     let mut omni_paxos = op_config.clone().build(storage).unwrap();
 
     // read decided entries
-    let entries = omni_paxos
-        .read_decided_suffix(0)
-        .expect("No decided entries");
+    let entries = omni_paxos.read_decided_suffix(0);
+
     let expected_entries = log.get(0..decided_idx).unwrap();
     verify_entries(entries.as_slice(), expected_entries, 0, decided_idx);
 
@@ -103,18 +102,18 @@ fn read_test() {
 
     // read entry
     let idx = snapshotted_idx;
-    let entry = omni_paxos.read(idx).expect("No entry");
+    let entry = omni_paxos.read_entries(idx..=idx);
     let expected_entries = log.get(idx..=idx).unwrap();
-    verify_entries(&[entry], expected_entries, snapshotted_idx, decided_idx);
+    verify_entries(
+        entry.as_slice(),
+        expected_entries,
+        snapshotted_idx,
+        decided_idx,
+    );
 
     // read snapshot
-    let snapshot = omni_paxos.read(0).expect("No snapshot");
+    let snapshot = omni_paxos.read_entries(0..=0).first().unwrap().clone();
     verify_snapshot(&[snapshot], snapshotted_idx, &exp_snapshot);
-
-    // read none
-    let idx = log.len();
-    let entry = omni_paxos.read(idx);
-    assert!(entry.is_none(), "Expected None, got: {:?}", entry);
 
     // create stopped storage and SequencePaxos to test reading StopSign.
     let ss_temp_dir = create_temp_dir();
@@ -144,8 +143,8 @@ fn read_test() {
 
     // read stopsign
     let idx = log_len;
-    let stopsign = stopped_op.read(idx).expect("No StopSign");
-    verify_stopsign(&[stopsign], &ss);
+    let stopsign = stopped_op.read_entries(idx..=idx);
+    verify_stopsign(stopsign.as_slice(), &ss);
 }
 
 #[test]
@@ -182,33 +181,21 @@ fn read_entries_test() {
 
     // read entries only
     let from_idx = snapshotted_idx + 1;
-    let entries = omni_paxos
-        .read_entries(from_idx..=decided_idx)
-        .expect("No entries");
+    let entries = omni_paxos.read_entries(from_idx..=decided_idx);
     let expected_entries = log.get(from_idx..=decided_idx).unwrap();
     verify_entries(entries.as_slice(), expected_entries, from_idx, decided_idx);
     // read snapshot only
-    let entries = omni_paxos
-        .read_entries(0..snapshotted_idx)
-        .expect("No snapshot");
+    let entries = omni_paxos.read_entries(0..snapshotted_idx);
     verify_snapshot(entries.as_slice(), snapshotted_idx, &exp_snapshot);
 
     // read snapshot + entries
     let from_idx = 3;
     let to_idx = decided_idx;
-    let entries = omni_paxos
-        .read_entries(from_idx..to_idx)
-        .expect("No snapshot and entries");
+    let entries = omni_paxos.read_entries(from_idx..to_idx);
     let (snapshot, suffix) = entries.split_at(1);
     let expected_entries = log.get(snapshotted_idx..to_idx).unwrap();
     verify_snapshot(snapshot, snapshotted_idx, &exp_snapshot);
     verify_entries(suffix, expected_entries, snapshotted_idx, decided_idx);
-
-    // read none
-    let from_idx = 0;
-    let to_idx = log.len();
-    let entries = omni_paxos.read_entries(from_idx..=to_idx);
-    assert!(entries.is_none(), "Expected None, got: {:?}", entries);
 
     // create stopped storage and SequencePaxos to test reading StopSign.
     let ss_temp_dir = create_temp_dir();
@@ -235,23 +222,19 @@ fn read_entries_test() {
 
     // read stopsign only
     let idx = log_len;
-    let entries = stopped_op.read_entries(idx..=idx).expect("No StopSign");
+    let entries = stopped_op.read_entries(idx..=idx);
     verify_stopsign(entries.as_slice(), &ss);
 
     // read entries + stopsign
     let from_idx = snapshotted_idx + 2;
-    let entries = stopped_op
-        .read_entries(from_idx..)
-        .expect("No StopSign and Entries");
+    let entries = stopped_op.read_entries(from_idx..);
     let (prefix, stopsign) = entries.split_at(entries.len() - 1);
     verify_entries(prefix, log.get(from_idx..).unwrap(), from_idx, log_len);
     verify_stopsign(stopsign, &ss);
 
     // read snapshot + entries + stopsign
     let from_idx = 0;
-    let entries = stopped_op
-        .read_entries(from_idx..)
-        .expect("No Snapshot, Entries and StopSign");
+    let entries = stopped_op.read_entries(from_idx..);
     let (prefix, stopsign) = entries.split_at(entries.len() - 1);
     let (snapshot, ents) = prefix.split_at(1);
     verify_snapshot(snapshot, snapshotted_idx, &exp_snapshot);
@@ -270,9 +253,7 @@ fn read_entries_test() {
         .expect("Failed to snapshot");
     let snapshotted_idx = log_len;
     let from_idx = 0;
-    let entries = stopped_op
-        .read_entries(from_idx..)
-        .expect("No StopSign and Entries");
+    let entries = stopped_op.read_entries(from_idx..);
     let (snapshot, stopsign) = entries.split_at(entries.len() - 1);
     verify_snapshot(snapshot, snapshotted_idx, &ValueSnapshot::create(&log));
     verify_stopsign(stopsign, &ss);

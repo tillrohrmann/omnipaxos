@@ -116,11 +116,7 @@ fn main() {
         .expect("append failed");
     // wait for the entries to be decided...
     std::thread::sleep(WAIT_DECIDED_TIMEOUT);
-    let committed_ents = leader_server
-        .lock()
-        .unwrap()
-        .read_decided_suffix(0)
-        .expect("Failed to read expected entries");
+    let committed_ents = leader_server.lock().unwrap().read_decided_suffix(0);
 
     let mut simple_kv_store = HashMap::new();
     for ent in committed_ents {
@@ -154,11 +150,8 @@ fn main() {
         .expect("append failed");
     // wait for the entries to be decided...
     std::thread::sleep(WAIT_DECIDED_TIMEOUT);
-    let committed_ents = follower_server
-        .lock()
-        .unwrap()
-        .read_decided_suffix(2)
-        .expect("Failed to read expected entries");
+    let committed_ents = follower_server.lock().unwrap().read_decided_suffix(2);
+
     for ent in committed_ents {
         if let LogEntry::Decided(kv) = ent {
             simple_kv_store.insert(kv.key, kv.value);

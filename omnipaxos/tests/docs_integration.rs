@@ -202,10 +202,6 @@ mod docs_integration_test {
         let mut omni_paxos = creating_a_node();
 
         // CODE_EXAMPLE
-        /*** Read a single entry ***/
-        let idx = 5;
-        let read_entry = omni_paxos.read(idx);
-
         /*** Read a range ***/
         let read_entries = omni_paxos.read_entries(2..5);
         // END_CODE_EXAMPLE
@@ -272,7 +268,7 @@ mod docs_integration_test {
         }
 
         // reading a snapshotted entry
-        if let Some(e) = omni_paxos.read(20) {
+        if let Some(e) = omni_paxos.read_entries(20..=20).first() {
             match e {
                 LogEntry::Snapshotted(s) => {
                     // entry at idx 20 is snapshotted since we snapshotted idx 100
@@ -317,27 +313,25 @@ mod docs_integration_test {
         let my_pid = current_config.pid;
 
         let idx: usize = 2; // some index we last read from
-        let decided_entries: Option<Vec<LogEntry<KeyValue>>> = omni_paxos.read_decided_suffix(idx);
+        let decided_entries: Vec<LogEntry<KeyValue>> = omni_paxos.read_decided_suffix(idx);
 
-        if let Some(de) = decided_entries {
-            for d in de {
-                match d {
-                    LogEntry::StopSign(stopsign, true) => {
-                        let new_configuration = stopsign.next_config;
-                        if new_configuration.nodes.contains(&my_pid) {
-                            // current configuration has been safely stopped. Start new instance
-                            let new_storage = MemoryStorage::default();
-                            let mut new_omnipaxos: OmniPaxos<KeyValue, MemoryStorage<KeyValue>> =
-                                new_configuration
-                                    .build_for_server(current_config.clone(), new_storage)
-                                    .unwrap();
+        for d in decided_entries {
+            match d {
+                LogEntry::StopSign(stopsign, true) => {
+                    let new_configuration = stopsign.next_config;
+                    if new_configuration.nodes.contains(&my_pid) {
+                        // current configuration has been safely stopped. Start new instance
+                        let new_storage = MemoryStorage::default();
+                        let mut new_omnipaxos: OmniPaxos<KeyValue, MemoryStorage<KeyValue>> =
+                            new_configuration
+                                .build_for_server(current_config.clone(), new_storage)
+                                .unwrap();
 
-                            // use new_omnipaxos
-                            // ...
-                        }
+                        // use new_omnipaxos
+                        // ...
                     }
-                    _ => {}
                 }
+                _ => {}
             }
         }
         // END_CODE_EXAMPLE

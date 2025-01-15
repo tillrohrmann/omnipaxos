@@ -138,25 +138,29 @@ fn check_trim(vec_proposals: &[Value], trim_idx: usize, node: Arc<Component<Omni
     node.on_definition(|x| {
         let op = &x.paxos;
         for trimmed_idx in 0..trim_idx {
-            match op.read(trimmed_idx).unwrap() {
-                LogEntry::Trimmed(idx) if idx == trim_idx => {}
+            match op.read_entries(trimmed_idx..=trimmed_idx).first().unwrap() {
+                LogEntry::Trimmed(idx) if *idx == trim_idx => {}
                 e => panic!(
                     "Entry {} must be Trimmed({}), but was {:?}",
                     trimmed_idx, trim_idx, e
                 ),
             }
         }
-        for idx in trim_idx..num_proposals {
-            let expected_value = vec_proposals.get(idx).unwrap();
-            match op.read(idx).unwrap() {
-                LogEntry::Decided(v) if &v == expected_value => {}
-                e => panic!(
-                    "Entry must be decided with {:?} at idx {}, but was {:?}",
-                    expected_value, idx, e
-                ),
-            }
+        let entries = op.read_entries(trim_idx..num_proposals);
+        for (offset, (actual_entry, expected_value)) in entries
+            .iter()
+            .zip(vec_proposals[trim_idx..num_proposals].iter())
+            .enumerate()
+        {
+            assert!(
+                matches!(actual_entry, LogEntry::Decided(v) if v == expected_value),
+                "Entry {} must be decided with {:?}, but was {:?}",
+                trim_idx + offset,
+                expected_value,
+                actual_entry
+            );
         }
-        let decided_sfx = op.read_decided_suffix(0).unwrap();
+        let decided_sfx = op.read_decided_suffix(0);
         assert_eq!(decided_sfx.len(), num_proposals - trim_idx + 1); // +1 as all trimmed entries are represented by LogEntry::Trimmed
     });
 }

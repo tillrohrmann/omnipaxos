@@ -285,21 +285,11 @@ where
         ble_msgs.chain(paxos_msgs).collect()
     }
 
-    /// Read entry at index `idx` in the log. Returns `None` if `idx` is out of bounds.
-    pub fn read(&self, idx: usize) -> Option<LogEntry<T>> {
-        match self
-            .seq_paxos
-            .internal_storage
-            .read(idx..idx + 1)
-            .expect("storage error while trying to read log entries")
-        {
-            Some(mut v) => v.pop(),
-            None => None,
-        }
-    }
-
-    /// Read entries in the range `r` in the log. Returns `None` if `r` is out of bounds.
-    pub fn read_entries<R>(&self, r: R) -> Option<Vec<LogEntry<T>>>
+    /// Read entries in the range `r` in the log.
+    ///
+    /// # Panics
+    /// If `r` is out of bounds or if a storage error occurs reading the log entries.
+    pub fn read_entries<R>(&self, r: R) -> Vec<LogEntry<T>>
     where
         R: RangeBounds<usize>,
     {
@@ -309,8 +299,12 @@ where
             .expect("storage error while trying to read log entries")
     }
 
-    /// Read all decided entries starting at `from_idx` (inclusive) in the log. Returns `None` if `from_idx` is out of bounds.
-    pub fn read_decided_suffix(&self, from_idx: usize) -> Option<Vec<LogEntry<T>>> {
+    /// Read all decided entries starting at `from_idx` (inclusive) in the log.
+    ///
+    /// # Panics
+    /// If the `from_idx` is larger than the decided index or if a storage error occurs reading the
+    /// log entries.
+    pub fn read_decided_suffix(&self, from_idx: usize) -> Vec<LogEntry<T>> {
         self.seq_paxos
             .internal_storage
             .read_decided_suffix(from_idx)
