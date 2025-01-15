@@ -316,8 +316,6 @@ where
         decided_idx: usize,
         log_sync: Option<LogSync<T>>,
     ) -> StorageResult<usize> {
-        self.state_cache.accepted_round = accepted_round;
-        self.state_cache.decided_idx = decided_idx;
         let mut sync_txn: Vec<StorageOp<T>> = vec![
             StorageOp::SetAcceptedRound(accepted_round),
             StorageOp::SetDecidedIndex(decided_idx),
@@ -356,6 +354,10 @@ where
             }
         }
         self.storage.write_atomically(sync_txn)?;
+
+        self.state_cache.accepted_round = accepted_round;
+        self.state_cache.decided_idx = decided_idx;
+
         Ok(self.state_cache.accepted_idx)
     }
 

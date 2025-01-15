@@ -948,7 +948,7 @@ impl Value {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ValueSnapshot {
     pub latest_value: Value,
     pub snapshotted: Vec<Value>,
@@ -979,14 +979,6 @@ impl ValueSnapshot {
         self.snapshotted.iter().any(|x| &x.id == id)
     }
 }
-
-impl PartialEq<Self> for ValueSnapshot {
-    fn eq(&self, other: &Self) -> bool {
-        self.latest_value == other.latest_value
-    }
-}
-
-impl Eq for ValueSnapshot {}
 
 /// Create a temporary directory in /tmp/
 pub fn create_temp_dir() -> String {
