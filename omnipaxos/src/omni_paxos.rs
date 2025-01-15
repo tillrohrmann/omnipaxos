@@ -16,11 +16,7 @@ use serde::Deserialize;
 use serde::Serialize;
 #[cfg(feature = "toml_config")]
 use std::fs;
-use std::{
-    error::Error,
-    fmt::{Debug, Display},
-    ops::RangeBounds,
-};
+use std::{fmt::Debug, ops::RangeBounds};
 #[cfg(feature = "toml_config")]
 use toml;
 
@@ -420,37 +416,37 @@ where
 
 /// An error indicating a failed proposal due to the current cluster configuration being already stopped
 /// or due to an invalid proposed configuration. Returns the failed proposal.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ProposeErr<T>
 where
     T: Entry,
 {
     /// Couldn't propose entry because a reconfiguration is pending. Returns the failed, proposed entry.
+    #[error("couldn't propose entry because a reconfiguration is pending")]
     PendingReconfigEntry(T),
     /// Couldn't propose reconfiguration because a reconfiguration is already pending. Returns the failed, proposed `ClusterConfig` and the metadata.
     /// cluster config and metadata.
+    #[error("couldn't propose reconfiguration because a reconfiguration is already pending")]
     PendingReconfigConfig(ClusterConfig, Option<Vec<u8>>),
     /// Couldn't propose reconfiguration because of an invalid cluster config. Contains the config
     /// error and the failed, proposed cluster config and metadata.
+    #[error("couldn't propose reconfiguration because of an invalid cluster config: {0}")]
     ConfigError(ConfigError, ClusterConfig, Option<Vec<u8>>),
 }
 
-/// An error returning the proposal that was failed due to that the current configuration is stopped.
-#[derive(Copy, Clone, Debug)]
+/// An error indicating a problem during compaction of the OmniPaxos log.
+#[derive(Copy, Clone, Debug, thiserror::Error)]
 pub enum CompactionErr {
     /// Snapshot was called with an index that is not decided yet. Returns the currently decided index.
+    #[error("snapshot was called with an index which is not decided yet; undecided index: {0}")]
     UndecidedIndex(usize),
     /// Snapshot was called with an index which is already trimmed. Returns the currently compacted index.
+    #[error("snapshot was called with an index which is already trimmed; compacted index: {0}")]
     TrimmedIndex(usize),
     /// Trim was called with an index that is not decided by all servers yet. Returns the index decided by ALL servers currently.
+    #[error("trim was called with an index which is not decided by all servers yet; decided index by all servers: {0}")]
     NotAllDecided(usize),
     /// Trim was called at a follower node. Trim must be called by the leader, which is the returned NodeId.
+    #[error("trim was called at a follower node; trim must be called by the leader; leader: {0}")]
     NotCurrentLeader(NodeId),
-}
-
-impl Error for CompactionErr {}
-impl Display for CompactionErr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(self, f)
-    }
 }

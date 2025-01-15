@@ -9,6 +9,12 @@ use crate::ClusterConfig;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt::Debug};
 
+/// The Result type returned by the storage API.
+pub type StorageResult<T> = Result<T, StorageError>;
+
+/// Generic storage error type.
+pub type StorageError = Box<dyn Error + Send + Sync>;
+
 /// Type of the entries stored in the log.
 pub trait Entry: Clone + Debug {
     #[cfg(not(feature = "serde"))]
@@ -94,10 +100,7 @@ where
     //fn size_hint() -> usize;  // TODO: To let the system know trade-off of using entries vs snapshot?
 }
 
-/// The Result type returned by the storage API.
-pub type StorageResult<T> = Result<T, Box<dyn Error + Send + Sync + 'static>>;
-
-/// The write operations of the storge implementation.
+/// The write operations of the storage implementation.
 #[derive(Debug)]
 pub enum StorageOp<T: Entry> {
     /// Appends an entry to the end of the log.

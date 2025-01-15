@@ -139,24 +139,23 @@ where
                         return Err(CompactionErr::NotAllDecided(*min_all_accepted_idx));
                     }
                 };
-                let result = self.internal_storage.try_trim(trimmed_idx);
-                if result.is_ok() {
-                    for pid in &self.peers {
-                        let msg = PaxosMsg::Compaction(Compaction::Trim(trimmed_idx));
-                        self.outgoing.push(PaxosMessage {
-                            from: self.pid,
-                            to: *pid,
-                            msg,
-                        });
-                    }
-                }
-                result.map_err(|e| {
-                    *e.downcast()
+                self.internal_storage.try_trim(trimmed_idx).map_err(|err| {
+                    *err.downcast()
                         .expect("storage error while trying to trim log")
-                })
+                })?;
+                for pid in &self.peers {
+                    let msg = PaxosMsg::Compaction(Compaction::Trim(trimmed_idx));
+                    self.outgoing.push(PaxosMessage {
+                        from: self.pid,
+                        to: *pid,
+                        msg,
+                    });
+                }
             }
-            _ => Err(CompactionErr::NotCurrentLeader(self.get_current_leader())),
+            _ => return Err(CompactionErr::NotCurrentLeader(self.get_current_leader())),
         }
+
+        Ok(())
     }
 
     /// Trim the log and create a snapshot. ** Note: only up to the `decided_idx` can be snapshotted **
@@ -168,8 +167,11 @@ where
         idx: Option<usize>,
         local_only: bool,
     ) -> Result<(), CompactionErr> {
-        let result = self.internal_storage.try_snapshot(idx);
-        if !local_only && result.is_ok() {
+        self.internal_storage.try_snapshot(idx).map_err(|err| {
+            *err.downcast()
+                .expect("storage error while trying to snapshot log")
+        })?;
+        if !local_only {
             // since it is decided, it is ok even for a follower to send this
             for pid in &self.peers {
                 let msg = PaxosMsg::Compaction(Compaction::Snapshot(idx));
@@ -180,10 +182,8 @@ where
                 });
             }
         }
-        result.map_err(|e| {
-            *e.downcast()
-                .expect("storage error while trying to snapshot log")
-        })
+
+        Ok(())
     }
 
     /// Return the decided index.
@@ -197,7 +197,7 @@ where
     }
 
     fn handle_compaction(&mut self, c: Compaction) {
-        // try trimming and snapshotting forwarded compaction. Errors are ignored as that the data will still be kept.
+        // try trimming and snapshotting forwarded compaction. Errors are ignored as that data will still be kept.
         match c {
             Compaction::Trim(idx) => {
                 let _ = self.internal_storage.try_trim(idx);
