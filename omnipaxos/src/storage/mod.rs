@@ -163,14 +163,19 @@ where
     fn get_accepted_round(&self) -> StorageResult<Option<Ballot>>;
 
     /// Returns the entries in the log in the index interval of [from, to).
-    /// If entries **do not exist for the complete interval**, an empty Vector should be returned.
+    ///
+    /// If the provided range [from, to) is out of bounds, the method should return an error.
+    ///
+    /// # Panics
+    /// This method panics if from > to.
     fn get_entries(&self, from: usize, to: usize) -> StorageResult<Vec<T>>;
 
     /// Returns the current length of the log (without the trimmed/snapshotted entries).
     fn get_log_len(&self) -> StorageResult<usize>;
 
     /// Returns the suffix of entries in the log from index `from` (inclusive).
-    /// If entries **do not exist for the complete interval**, an empty Vector should be returned.
+    ///
+    /// If `from` is out of bounds, the method should return an error.
     fn get_suffix(&self, from: usize) -> StorageResult<Vec<T>>;
 
     /// Returns the round that has been promised.

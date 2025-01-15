@@ -3,7 +3,7 @@ use omnipaxos::{
     storage::{Entry, StopSign, Storage, StorageOp, StorageResult},
 };
 /// An in-memory storage implementation for SequencePaxos.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MemoryStorage<T>
 where
     T: Entry,
@@ -90,9 +90,14 @@ where
     }
 
     fn get_entries(&self, from: usize, to: usize) -> StorageResult<Vec<T>> {
-        let from = from - self.trimmed_idx;
-        let to = to - self.trimmed_idx;
-        Ok(self.log.get(from..to).unwrap_or(&[]).to_vec())
+        assert!(from <= to, "Invalid range: {from} > {to}");
+
+        let from_offset = from - self.trimmed_idx;
+        let to_offset = to - self.trimmed_idx;
+        self.log
+            .get(from_offset..to_offset)
+            .map(|slice| slice.to_vec())
+            .ok_or_else(|| format!("Missing log entries for range [{from}, {to})").into())
     }
 
     fn get_log_len(&self) -> StorageResult<usize> {
@@ -100,10 +105,7 @@ where
     }
 
     fn get_suffix(&self, from: usize) -> StorageResult<Vec<T>> {
-        Ok(match self.log.get((from - self.trimmed_idx)..) {
-            Some(s) => s.to_vec(),
-            None => vec![],
-        })
+        self.get_entries(from, self.log.len() + self.trimmed_idx)
     }
 
     fn get_promise(&self) -> StorageResult<Option<Ballot>> {
