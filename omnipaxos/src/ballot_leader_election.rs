@@ -91,6 +91,8 @@ pub(crate) struct BallotLeaderElection {
     quorum: Quorum,
     /// Vector which holds all the outgoing messages of the BLE instance.
     outgoing: Vec<BLEMessage>,
+    /// The highest seen configuration id so far
+    highest_seen_configuration_id: ConfigurationId,
 }
 
 impl BallotLeaderElection {
@@ -122,6 +124,7 @@ impl BallotLeaderElection {
             happy: true,
             quorum,
             outgoing: Vec::with_capacity(config.buffer_size),
+            highest_seen_configuration_id: config_id,
         };
         #[cfg(feature = "logging")]
         {
@@ -161,6 +164,7 @@ impl BallotLeaderElection {
         for peer in &self.peers {
             let hb_request = HeartbeatRequest {
                 round: self.hb_round,
+                configuration_id: self.configuration_id,
             };
             self.outgoing.push(BLEMessage {
                 from: self.pid,
@@ -247,6 +251,8 @@ impl BallotLeaderElection {
     }
 
     fn handle_request(&mut self, from: NodeId, req: HeartbeatRequest) {
+        self.highest_seen_configuration_id =
+            self.highest_seen_configuration_id.max(req.configuration_id);
         let hb_reply = HeartbeatReply {
             round: req.round,
             ballot: self.current_ballot,
@@ -261,6 +267,9 @@ impl BallotLeaderElection {
     }
 
     fn handle_reply(&mut self, rep: HeartbeatReply) {
+        self.highest_seen_configuration_id =
+            self.highest_seen_configuration_id.max(rep.ballot.config_id);
+
         if rep.round == self.hb_round && rep.ballot.config_id == self.configuration_id {
             self.heartbeat_replies.push(rep);
         }
@@ -272,6 +281,10 @@ impl BallotLeaderElection {
 
     pub(crate) fn get_ballots(&self) -> Vec<HeartbeatReply> {
         self.prev_replies.clone()
+    }
+
+    pub(crate) fn has_seen_higher_configuration(&self) -> bool {
+        self.highest_seen_configuration_id > self.configuration_id
     }
 }
 

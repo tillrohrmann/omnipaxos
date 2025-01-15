@@ -406,6 +406,12 @@ where
     pub fn into_inner(self) -> B {
         self.seq_paxos.internal_storage.into_inner()
     }
+
+    /// Returns whether the OmniPaxos instance has seen a higher configuration id than itself. This
+    /// indicates that we have missed a reconfiguration.
+    pub fn has_seen_higher_configuration(&self) -> bool {
+        self.ble.has_seen_higher_configuration()
+    }
 }
 
 /// An error indicating a failed proposal due to the current cluster configuration being already stopped

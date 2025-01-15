@@ -197,6 +197,7 @@ pub mod sequence_paxos {
 /// The different messages BLE uses to communicate with other servers.
 pub mod ballot_leader_election {
 
+    use crate::util::ConfigurationId;
     use crate::{ballot_leader_election::Ballot, util::NodeId};
     #[cfg(feature = "serde")]
     use serde::{Deserialize, Serialize};
@@ -216,6 +217,8 @@ pub mod ballot_leader_election {
     pub struct HeartbeatRequest {
         /// Number of the current round.
         pub round: u32,
+        /// Configuration id of the sender.
+        pub configuration_id: ConfigurationId,
     }
 
     /// Replies
