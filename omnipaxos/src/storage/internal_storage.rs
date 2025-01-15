@@ -468,7 +468,7 @@ where
         self.state_cache.decided_idx
     }
 
-    fn get_decided_idx_without_stopsign(&self) -> usize {
+    pub(crate) fn get_decided_idx_without_stopsign(&self) -> usize {
         match self.stopsign_is_decided() {
             true => self.get_decided_idx() - 1,
             false => self.get_decided_idx(),

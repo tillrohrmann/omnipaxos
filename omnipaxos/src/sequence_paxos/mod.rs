@@ -370,13 +370,13 @@ where
     }
     /// Returns `LogSync`, a struct to help other servers synchronize their log to correspond to the
     /// current state of our own log. The `common_prefix_idx` marks where in the log the other server
-    /// needs to be sync from.
+    /// needs to be synced from.
     fn create_log_sync(
         &self,
         common_prefix_idx: usize,
         other_logs_decided_idx: usize,
     ) -> LogSync<T> {
-        let decided_idx = self.internal_storage.get_decided_idx();
+        let decided_idx = self.internal_storage.get_decided_idx_without_stopsign();
         let (decided_snapshot, suffix, sync_idx) =
             if T::Snapshot::use_snapshots() && decided_idx > common_prefix_idx {
                 // Note: We snapshot from the other log's decided index and not the common prefix because
